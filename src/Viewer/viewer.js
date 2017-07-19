@@ -1,45 +1,81 @@
-import css from "style!css!./viewer.css";
+import css from "./viewer.css";
 
 import Page from "../Page/page";
 import h from "hyperscript";
 
 class Viewer {
   constructor(opts) {
-    this.pages = opts.pages;
-
-    if (opts.target) {
-      this.target = opts.target;
-    }
-    else {
-      this.target = h("div");
-      document.body.appendChild(this.target);
-    }
-    this.target.setAttribute("bindery-export", true);
-
+    this.pages = [];
     this.doubleSided = true;
     this.currentLeaf = 0;
+
+    this.export = h(".bindery-export");
+    this.export.setAttribute("bindery-export", true);
+
+  }
+  displayError(title, text) {
+    if (!this.export.parentNode) {
+      document.body.appendChild(this.export);
+    }
+    this.export.appendChild(h(".bindery-error",
+      h(".bindery-error-title", title),
+      h(".bindery-error-text", text),
+      h(".bindery-error-footer", "Bindery.js v0.1 Alpha"),
+    ));
   }
   cancel() {
     // TODO this doesn't work if the target is an existing node
-    document.body.classList.remove("bindery-viewing");
-    this.target.parentNode.removeChild(this.target);
+    if (this.export.parentNode) {
+      this.export.parentNode.removeChild(this.export);
+    }
   }
   toggleGuides() {
-    this.target.classList.toggle("bindery-show-guides");
+    this.export.classList.toggle("bindery-show-guides");
+  }
+  toggleBleed() {
+    this.export.classList.add("bindery-show-bleed");
   }
   toggleDouble() {
     this.doubleSided = !this.doubleSided;
     this.update();
   }
+  setMode(newMode) {
+    switch (newMode) {
+      case "grid":
+      case "standard":
+      case "default":
+        this.mode = "grid";
+        break;
+      case "interactive":
+      case "preview":
+      case "3d":
+        this.mode = "preview";
+        break;
+      default:
+        console.error(`Bindery: Unknown view mode "${newMode}"`);
+        break;
+    }
+  }
   setGrid() {
     this.mode = "grid";
+    this.export.classList.remove("bindery-show-bleed");
     this.update();
   }
-  toggleInteractive() {
-    this.mode = this.mode == "grid" ? "preview" : "grid";
+  setPrintPreview() {
+    this.mode = "grid";
+    this.export.classList.add("bindery-show-bleed");
+    this.update();
+  }
+  setInteractive() {
+    this.mode = "preview";
+    this.export.classList.remove("bindery-show-bleed");
     this.update();
   }
   update() {
+    if (!this.export.parentNode) {
+      document.body.appendChild(this.export);
+    }
+
     document.body.classList.add("bindery-viewing");
     switch (this.mode) {
       case "grid":
@@ -52,10 +88,11 @@ class Viewer {
         this.renderGrid();
     }
   }
+
   renderGrid() {
     this.mode = "grid";
-    this.target.style.display = "block";
-    this.target.innerHTML = "";
+    this.export.style.display = "block";
+    this.export.innerHTML = "";
 
     let pages = this.pages.slice();
 
@@ -87,32 +124,36 @@ class Viewer {
         leftPage.setAttribute("bindery-side", "left");
         rightPage.setAttribute("bindery-side", "right");
 
-        let wrap = h(".bindery-print-wrapper", {
-          style: {
-            height: `${Page.H}px`,
-            width: `${Page.W * 2}px`,
-          }
-        }, leftPage, rightPage);
+        let wrap = h(".bindery-print-page",
+          h(".bindery-print-wrapper", {
+            style: {
+              height: `${Page.H}px`,
+              width: `${Page.W * 2}px`,
+            }
+          }, leftPage, rightPage)
+        );
 
-        this.target.appendChild(wrap);
+        this.export.appendChild(wrap);
       }
       else {
         let pg = pages[i].element;
         pg.setAttribute("bindery-side", "right");
-        let wrap = h(".bindery-print-wrapper", {
-          style: {
-            height: `${Page.H}px`,
-            width: `${Page.W}px`,
-          }
-        }, pg);
-        this.target.appendChild(wrap);
+        let wrap = h(".bindery-print-page",
+          h(".bindery-print-wrapper", {
+            style: {
+              height: `${Page.H}px`,
+              width: `${Page.W}px`,
+            }
+          }, pg),
+        );
+        this.export.appendChild(wrap);
       }
     }
   }
   renderPreview() {
     this.mode = "preview";
-    this.target.style.display = "block";
-    this.target.innerHTML = "";
+    this.export.style.display = "block";
+    this.export.innerHTML = "";
     this.flaps = [];
 
     let pages = this.pages.slice();
@@ -137,32 +178,45 @@ class Viewer {
       let flap = h("div.bindery-page3d", {
         style: `height:${Page.H}px; width:${Page.W}px`,
         onclick: () => {
-        // this.setLeaf(li-1);
+          let newLeaf = li - 1;
+          if (newLeaf == this.currentLeaf) newLeaf++;
+          this.setLeaf(newLeaf);
         },
       });
-      this.makeDraggable(flap);
-      this.target.classList.add("bindery-stage3d");
+      // this.makeDraggable(flap);
+      this.export.classList.add("bindery-stage3d");
       this.flaps.push(flap);
 
-      let l = pages[i].element;
-      l.classList.add("bindery-page3d-front");
-      flap.appendChild(l);
+      let rightPage = pages[i].element;
+      let leftPage;
+      rightPage.classList.add("bindery-page3d-front");
+      flap.appendChild(rightPage);
       if (this.doubleSided) {
         flap.classList.add("bindery-doubleSided");
-        let r = pages[i+1].element;
-        r.classList.add("bindery-page3d-back");
-        flap.appendChild(r);
+        leftPage = pages[i+1].element;
+        leftPage.classList.add("bindery-page3d-back");
+        flap.appendChild(leftPage);
       }
       else {
-        let r = h(".bindery-page.bindery-page3d-back")
-        flap.appendChild(r);
+        leftPage = h(".bindery-page.bindery-page3d-back")
+        flap.appendChild(leftPage);
       }
       // flap.style.zIndex = `${this.pages.length - i}`;
       // flap.style.top = `${i * 4}px`;
       flap.style.left = `${i * 4}px`;
-      this.target.appendChild(flap);
+
+      leftPage.setAttribute("bindery-side", "left");
+      rightPage.setAttribute("bindery-side", "right");
+
+
+      this.export.appendChild(flap);
     }
-    this.setLeaf(0);
+    if (this.currentLeaf) {
+      this.setLeaf(this.currentLeaf);
+    }
+    else {
+      this.setLeaf(0);
+    }
   }
   setLeaf(n) {
     this.currentLeaf = n;

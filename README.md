@@ -6,7 +6,17 @@ bindery.js is a questionably useful library for producing book layouts in the
 browser. The core library flows text content over multiple pages. It also includes modules for common book elements, including numbering, running headers, out-of-flow spreads, and more. The modules can be applied in order to map web conventions to print conventions,
 like displaying hyperlink destinations as footnotes.
 
-The resulting book is previewable in-browser, and can open the system ⌘P dialog to send to a printer or to PDF
+The resulting book is viewable in-browser, and can open the system ⌘P dialog to send to a printer or to PDF
+
+
+## Who is this for?
+
+The goal of bindery.js is to provide an approachable jumping-off point for HTML-to-Print
+exploration. Because of this, it works out of the box (without needing to run a dev server,
+set up a development environment, or use preprocessors).
+
+If you are interested in integrating it into a larger project, please feel free to reach out.
+
 
 ## Background
 
@@ -32,12 +42,12 @@ As of February 2017, it is in the process of being rewritten as a usable, modula
   <script>
     let binder = new Bindery({
       source: ".content",
-      rules: {
-        "h1": Bindery.BreakBefore,
-        "h2": Bindery.RunningHeader,
-        "a": Bindery.Footnote((el) => `Link to ${el.href}`),
-        ".figure": Bindery.Spread,
-      },
+      pageSize: { height: 500, width: 350 },
+      rules: [
+        Bindery.BreakBefore({ selector: "h2" }),
+        Bindery.RunningHeader({ selector: "h2" }),
+        Bindery.PageNumber(),
+      ],
     });
 
     binder.makeBook();
@@ -50,11 +60,13 @@ As of February 2017, it is in the process of being rewritten as a usable, modula
 
 TK
 
-## Future Plans
+## To Do
 
-- [ ] Page Number references (Tables of Contents, Indexes)
-- [ ] More control over spreads and ordering
-- [ ] Customizable page sizing
+- [x] Page Number references (Tables of Contents, Indexes)
+- [ ] More control over spreads, ordering, booklet printing
+- [x] Customizable page sizing
 - [ ] Examples for use with blogging platforms
-- [ ] Wrappers for React/virtualDOM libraries.
-- [ ] More Documentation
+- [ ] Wrapper for use with React.
+- [ ] Approachable API for writing custom rules
+- [ ] Documentation!
+- [ ] Make usable

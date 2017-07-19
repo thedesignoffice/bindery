@@ -1,7 +1,4 @@
-import css from "style!css!./bindery.css";
-
-import ElementPath from "./ElementPath"
-import elementName from "./ElementName"
+import paginate from "./paginate";
 
 import Page from "./Page/page";
 import Viewer from "./Viewer/viewer";
@@ -9,339 +6,228 @@ import Controls from "./Controls/controls";
 
 import Rules from "./Rules/";
 
-import h from "hyperscript";
 
+const DEFAULT_PAGE_SIZE = {
+  width: 350,
+  height: 500
+}
+const DEFAULT_PAGE_MARGIN = {
+  inner: 30,
+  outer: 50,
+  bottom: 60,
+  top: 40
+}
 
 class Binder {
   constructor(opts) {
 
-    if (typeof opts.source == "string") {
-      this.source = document.querySelector(opts.source)
-    }
-    else if (opts.source instanceof HTMLElement) {
-      this.source = opts.source;
-    }
-    else {
-      console.error(`Bindery: Source should be an element or selector`);
+    let pageSize = opts.pageSize ? opts.pageSize : DEFAULT_PAGE_SIZE
+    let pageMargin = opts.pageMargin ? opts.pageMargin : DEFAULT_PAGE_MARGIN
+    this.setSize(pageSize);
+    this.setMargin(pageMargin);
+
+    this.viewer = new Viewer()
+    if (opts.startingViewMode) {
+      this.viewer.setMode(opts.startingViewMode);
     }
 
     this.rules = [];
-
-    this.controls = new Controls({
-      binder: this,
-    });
-
-    if (opts.pageSize) Page.setSize(opts.pageSize);
-    if (opts.margin) Page.setMargin(opts.margin);
-
     if (opts.rules) this.addRules(opts.rules);
+
+    if (opts.standalone) { this.runImmeditately = true; }
+
     this.debugDelay = opts.debugDelay ? opts.debugDelay : 0;
 
+    if (!opts.source) {
+      this.viewer.displayError("Source not specified", "You must include a source element, selector, or url");
+      console.error(`Bindery: You must include a source element or selector`);
+    }
+    else if (typeof opts.source == "string") {
+      this.source = document.querySelector(opts.source);
+      if (!(this.source instanceof HTMLElement)) {
+        this.viewer.displayError("Source not specified", `Could not find element that matches selector "${opts.source}"`);
+        console.error(`Bindery: Could not find element that matches selector "${opts.source}"`);
+        return
+      }
+      if (this.runImmeditately) {
+        this.makeBook();
+      }
+    }
+    else if (typeof opts.source == "object" && opts.source.url) {
+      let url = opts.source.url;
+      let selector = opts.source.selector;
+      fetch(opts.source.url).then((response) => {
+        console.log(response);
+        if (response.status === 404) {
+          this.viewer.displayError("404", `Could not find file at "${url}"`);
+        }
+        else if (response.status === 200) {
+          return response.text();
+        }
+      }).then((fetchedContent) => {
+        var wrapper = document.createElement('div');
+        wrapper.innerHTML = fetchedContent;
+        this.source = wrapper.querySelector(selector);
+        if (!(this.source instanceof HTMLElement)) {
+          this.viewer.displayError("Source not specified", `Could not find element that matches selector "${selector}"`);
+          console.error(`Bindery: Could not find element that matches selector "${selector}"`);
+          return
+        }
+        if (this.runImmeditately) {
+          this.makeBook();
+        }
+      }).catch((error) => {
+  			console.log(error);
+        let scheme = window.location.href.split("://")[0];
+        if (scheme == "file") {
+          this.viewer.displayError(`Can't fetch content from "${url}"`, "Web pages can't fetch content unless they are on a server.");
+          // alert(`Can't fetch content from "${url}". Web pages can't fetch content unless they are on a server. \n\n What you can do: \n 1. Include the content you need on this page, or \n 2. Put this page on your server, or \n 3. Run a local server`);
+        }
+  		});
+    }
+    else if (opts.source instanceof HTMLElement) {
+      this.source = opts.source;
+      if (this.runImmeditately) {
+        this.makeBook();
+      }
+    }
+    else {
+      console.error(`Bindery: Source must be an element or selector`);
+    }
+
   }
+
   cancel() {
+    this.stopCheckingLayout();
     this.viewer.cancel();
+    document.body.classList.remove("bindery-viewing");
     this.source.style.display = "";
   }
 
-  addRules(rules) {
-    for (let selector in rules) {
-      if (!rules[selector] ) {
-        console.warn(`Bindery: Unknown rule for "${selector}"`);
-        continue;
+  setSize(size) {
+    this.pageSize = size
+    Page.setSize(size);
+  }
+
+  setMargin(margin) {
+    this.pageMargin = margin
+    Page.setMargin(margin);
+  }
+
+  isSizeValid() {
+    return Page.isSizeValid();
+  }
+
+  addRules(newRules) {
+    newRules.forEach((rule) => {
+      if (rule instanceof Rules.BinderyRule) {
+        this.rules.push(rule);
       }
-      rules[selector].selector = selector;
-      this.rules.push(rules[selector]);
-    }
+      else {
+        console.warn("Bindery: The following is not an instance of BinderyRule and will be ignored:");
+        console.warn(rule);
+      }
+    })
   }
 
   makeBook(doneBinding) {
 
-    let state = {
-      path: new ElementPath(),
-      pages: [],
-      getNewPage: () => {
-        return makeNextPage();
-      }
+    if (!this.source) {
+      document.body.classList.add("bindery-viewing");
+      return;
     }
 
-    const DELAY = this.debugDelay; // ms
-    let throttle = (func) => {
-      if (DELAY > 0) setTimeout(func, DELAY);
-      else func();
+    if (!this.isSizeValid()) {
+      console.error("Bindery: Cancelled pagination. Page is too small.");
+      return;
     }
 
-    let beforeAddRules = (elmt) => {
-      this.rules.forEach( (rule) => {
-        if (elmt.matches(rule.selector) && rule.beforeAdd) {
+    this.stopCheckingLayout();
 
-          let backupPgElmnt = state.currentPage.element.cloneNode(true);
-          let backupElmt = elmt.cloneNode(true);
-          rule.beforeAdd(elmt, state);
-
-          if (state.currentPage.hasOverflowed()) {
-            // restore from backup
-            elmt.innerHTML = backupElmt.innerHTML; // TODO: make less hacky
-            state.currentPage.element = backupPgElmnt;
-            state.currentPage.number = backupPgElmnt.querySelector(".bindery-num"); // TODO
-
-            state.currentPage = makeNextPage();
-
-            rule.beforeAdd(elmt, state);
-          }
-        }
-      });
-    }
-    let afterAddRules = (elmt) => {
-      this.rules.forEach( (rule) => {
-        if (elmt.matches(rule.selector) && rule.afterAdd) {
-          rule.afterAdd(elmt, state);
-        }
-      });
-    }
-    let newPageRules = (pg) => {
-      this.rules.forEach( (rule) => {
-        if (rule.newPage) rule.newPage(pg, state);
-      });
-    }
-    let afterBindRules = (pages) => {
-      this.rules.forEach( (rule) => {
-        if (rule.afterBind) {
-          pages.forEach((pg, i) => {
-            rule.afterBind(pg, i);
-          });
-        }
-      });
-    }
-
-    // Creates clones for ever level of tag
-    // we were in when we overflowed the last page
-    let makeNextPage = () => {
-      state.path = state.path.clone();
-      let newPage = new Page();
-      newPageRules(newPage);
-      state.pages.push(newPage);
-      state.currentPage = newPage; // TODO redundant
-      if (state.path.root) {
-        newPage.flowContent.appendChild(state.path.root);
-      }
-      return newPage;
-    };
-
-
-    // Adds an text node by binary searching amount of
-    // words until it just barely doesnt overflow
-    let addTextNode = (node, doneCallback, abortCallback) => {
-
-      state.path.last.appendChild(node);
-
-      let textNode = node;
-      let origText = textNode.nodeValue;
-
-      let pos = 0;
-      let lastPos = pos;
-      let addWordIterations = 0;
-
-      let step = (rawPos) => {
-        addWordIterations++;
-
-        lastPos = pos;
-        pos = parseInt(rawPos);
-        let dist = Math.abs(lastPos - pos);
-
-
-        if (pos > origText.length - 1) {
-          throttle(doneCallback);
-          return;
-        }
-        textNode.nodeValue = origText.substr(0, pos);
-
-        if (dist < 1) { // Is done
-
-          // Back out to word boundary
-          while(origText.charAt(pos) !== " " && pos > -1) pos--;
-          textNode.nodeValue = origText.substr(0, pos);
-
-          if (pos < 1 && origText.trim().length > 0) {
-            // console.error(`Bindery: Aborted adding "${origText.substr(0,25)}"`);
-            textNode.nodeValue = origText;
-            abortCallback();
-            return;
-          }
-
-          origText = origText.substr(pos);
-          pos = 0;
-
-          // Start on new page
-          state.currentPage = makeNextPage();
-          textNode = document.createTextNode(origText);
-          state.path.last.appendChild(textNode);
-
-          // If the remainder fits there, we're done
-          if (!state.currentPage.hasOverflowed()) {
-            throttle(doneCallback);
-            return;
-          }
-        }
-        // Search backward
-        if (state.currentPage.hasOverflowed()) throttle(() => { step(pos - dist/2); });
-        // Search forward
-        else throttle(() => { step(pos + dist/2); });
-      }
-
-      if (state.currentPage.hasOverflowed()) step(origText.length/2); // find breakpoint
-      else throttle(doneCallback); // add in one go
-    }
-
-
-    // Adds an element node by clearing its childNodes, then inserting them
-    // one by one recursively until thet overflow the page
-    let addElementNode = (node, doneCallback) => {
-
-      // Add this node to the current page or context
-      if (state.path.items.length == 0) state.currentPage.flowContent.appendChild(node);
-      else state.path.last.appendChild(node);
-      state.path.push(node);
-
-      // This can be added instantly without searching for the overflow point
-      // but won't apply rules to this node's children
-      // if (!hasOverflowed()) {
-      //   throttle(doneCallback);
-      //   return;
-      // }
-
-      if (state.currentPage.hasOverflowed() && node.getAttribute("bindery-break") == "avoid")  {
-        let nodeH = node.getBoundingClientRect().height;
-        let flowH = state.currentPage.flowBox.getBoundingClientRect().height;
-        if (nodeH < flowH) {
-          state.path.pop();
-          state.currentPage = makeNextPage();
-          addElementNode(node, doneCallback);
-          return;
-        }
-        else {
-          console.warn(`Bindery: Cannot avoid breaking ${elementName(node)}, it's taller than the flow box.`);
-        }
-      }
-
-      // Clear this node, before re-adding its children
-      let childNodes = [...node.childNodes];
-      node.innerHTML = '';
-
-      let index = 0;
-      let addNextChild = () => {
-        if (!(index < childNodes.length)) {
-          doneCallback();
-          return;
-        }
-        let child = childNodes[index];
-        index += 1;
-        switch (child.nodeType) {
-          case Node.TEXT_NODE:
-            let cancel = () => {
-              let lastEl = state.path.pop();
-              if (state.path.items.length < 1) {
-                console.error(`Bindery: Failed to add textNode "${child.nodeValue}" to ${elementName(lastEl)}. Page might be too small?`);
-                return;
-              }
-
-              let fn = state.currentPage.footer.lastChild; // <--
-
-              state.currentPage = makeNextPage();
-
-              if (fn) state.currentPage.footer.appendChild(fn); // <--
-
-              state.path.last.appendChild(node);
-              state.path.push(node);
-              addTextNode(child, addNextChild, cancel);
-            }
-            addTextNode(child, addNextChild, cancel);
-            break;
-          case Node.ELEMENT_NODE: {
-            if (child.tagName == "SCRIPT") {
-              addNextChild(); // skip
-              break;
-            }
-
-            beforeAddRules(child);
-
-            throttle(() => {
-              addElementNode(child, () => {
-                state.path.pop();
-                afterAddRules(child);
-                addNextChild();
-              })
-            });
-            break;
-          }
-          default:
-            console.log(`Bindery: Unknown node type: ${child.nodeType}`);
-        }
-      }
-
-      // kick it off
-      addNextChild();
-    }
-
-    state.currentPage = makeNextPage();
+    this.source.style.display = "";
     let content = this.source.cloneNode(true);
-    content.style.margin = 0;
-    content.style.padding = 0;
-
     this.source.style.display = "none";
-    addElementNode(content, () => {
-      console.log("wow we're done!");
-      let measureArea = document.querySelector(".bindery-measure-area");
-      document.body.removeChild(measureArea);
 
-      reorderPages(state.pages);
+    // In case we're updating an existing layout
+    document.body.classList.remove("bindery-viewing");
+    document.body.classList.add("bindery-inProgress");
 
-      afterBindRules(state.pages);
-
-      this.viewer = new Viewer({
-        pages: state.pages,
-      });
-
-      this.viewer.update();
-      this.controls.setState("done");
-
-      if (doneBinding) doneBinding();
-    });
-  }
-}
-
-// TODO: only do this if not double sided?
-let reorderPages = (pages) => {
-  // TODO: this ignores the cover page, assuming its on the right
-  for (var i = 1; i < pages.length - 1; i += 2) {
-    let left  = pages[i];
-
-    // TODO: Check more than once
-    if (left.alwaysRight) {
-      if (left.outOfFlow) {
-        pages[i] = pages[i+1];
-        pages[i+1] = left;
-      }
-      else {
-        pages.splice(i, 0, new Page());
-      }
+    if (!this.controls) {
+      this.controls = new Controls({binder: this});
     }
 
-    let right = pages[i+1];
+    this.controls.setInProgress();
 
-    if (right.alwaysLeft) {
-      if (right.outOfFlow) {
-        // TODO: don't overflow, assumes that
-        // there are not multiple spreads in a row
-        pages[i+1] = pages[i+3];
-        pages[i+3] = right;
-      }
-      else {
-        pages.splice(i+1, 0, new Page());
+    paginate(content, this.rules, (pages) => {
+
+      setTimeout(() => {
+        this.viewer.pages = pages,
+        this.viewer.update();
+
+        this.controls.setDone();
+        if (doneBinding) doneBinding();
+        document.body.classList.remove("bindery-inProgress");
+        this.startCheckingLayout()
+
+      }, 100);
+
+
+
+    }, this.debugDelay);
+  }
+
+  startCheckingLayout() {
+    this.layoutChecker = setInterval(() => {
+      this.checkLayoutChange()
+    }, 500);
+  }
+  stopCheckingLayout() {
+    if (this.layoutChecker) {
+      clearInterval(this.layoutChecker);
+      this.pageOverflows = null;
+    }
+  }
+
+  checkLayoutChange() {
+    if ( this.viewer.mode == "preview") return;
+    if ( !this.pageOverflows) {
+      this.pageOverflows = this.getPageOverflows();
+      return;
+    }
+    else {
+      let newOverflows = this.getPageOverflows();
+      if (!arraysEqual(newOverflows, this.pageOverflows)) {
+        // console.info("Layout changed");
+        this.throttledUpdateBook()
+        this.pageOverflows = newOverflows;
       }
     }
   }
+
+  throttledUpdateBook() {
+    if (this.makeBookTimer) clearTimeout(this.makeBookTimer);
+    this.makeBookTimer = setTimeout(() => {
+      this.makeBook()
+    }, 500)
+  }
+
+  getPageOverflows() {
+    return this.viewer.pages.map((page) => page.overflowAmount())
+  }
+
 }
 
+let arraysEqual = (a, b) => {
+  if (a.length !== b.length) {
+    return false;
+  }
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) {
+      return false;
+    }
+  }
+  return true;
+}
 
 
 for (let rule in Rules) {
