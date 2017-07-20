@@ -1,4 +1,4 @@
-import elementName from "./ElementName"
+import elementName from "./elementToString"
 import Page from "./Page/page";
 
 export default function(content, rules, done, DELAY) {
@@ -69,13 +69,13 @@ export default function(content, rules, done, DELAY) {
   // we were in when we overflowed the last page
   let makeNextPage = () => {
     if (state.currentPage && state.currentPage.hasOverflowed()) {
-      console.error("Bindery: Moved to new page when last one is still overflowing");
-      console.log(state.currentPage.element);
+      console.error("Bindery: Moved to new page when last one is still overflowing", state.currentPage.element);
     }
 
 
     state.path = clonePath(state.path);
     let newPage = new Page();
+    newPage.creationOrder = state.pages.length;
     newPageRules(newPage);
     state.pages.push(newPage);
     state.currentPage = newPage; // TODO redundant
@@ -101,11 +101,15 @@ export default function(content, rules, done, DELAY) {
   };
 
   let moveNodeToNextPage = (nodeToMove) => {
-    state.path.pop();
+    // nodeToMove.style.outline = "1px solid red";
+    // state.path.pop();
 
+    let old = state.currentPage.creationOrder;
     // let fn = state.currentPage.footer.lastChild; // <--
     state.currentPage = makeNextPage();
     // if (fn) state.currentPage.footer.appendChild(fn); // <-- move footnote to new page
+
+    // console.log(`moved "${ elementName(nodeToMove)}" from page ${old} to ${state.currentPage.creationOrder}`);
 
     last(state.path).appendChild(nodeToMove);
     state.path.push(nodeToMove);
@@ -120,7 +124,7 @@ export default function(content, rules, done, DELAY) {
     let origText = textNode.nodeValue;
 
     let lastPos = 0;
-    let pos = origText.length/2;;
+    let pos = origText.length / 2;
 
     let step = () => {
 
@@ -138,16 +142,27 @@ export default function(content, rules, done, DELAY) {
         while(origText.charAt(pos) !== " " && pos > -1) pos--;
 
         if (pos < 1 && origText.trim().length > 0) {
-          // console.error(`Bindery: Aborted adding "${origText.substr(0,25)}"`);
+          // console.error(`Bindery: Aborted adding "${origText.substr(0,25)}..."`);
           textNode.nodeValue = origText;
           abortCallback();
           return;
         }
 
-        textNode.nodeValue = origText.substr(0, pos);
+        let fittingText = origText.substr(0, pos);
+        let overflowingText = origText.substr(pos);
+        textNode.nodeValue = fittingText;
+        origText = overflowingText;
 
-        origText = origText.substr(pos);
-        pos = 0;
+        // pos = 0; // IS THIS THE PROBLEM?
+        lastPos = 0;
+        pos = origText.length / 2;
+
+        // console.log("Dividing text node: ...",
+        //   fittingText.substr(fittingText.length - 24),
+        //   " 🛑 ",
+        //   overflowingText.substr(0, 24),
+        //   "..."
+        // );
 
         // Start on new page
         state.currentPage = makeNextPage();
@@ -157,7 +172,12 @@ export default function(content, rules, done, DELAY) {
 
         // If the remainder fits there, we're done
         if (!state.currentPage.hasOverflowed()) {
+          // console.log("Fits entirely!");
           throttle(doneCallback);
+          return;
+        }
+        else {
+          throttle(step);
           return;
         }
       }
@@ -181,7 +201,7 @@ export default function(content, rules, done, DELAY) {
   let addElementNode = (node, doneCallback) => {
 
     if (state.currentPage.hasOverflowed()) {
-      node.style.outline = "1px solid red";
+      // node.style.outline = "1px solid red";
       console.error("Bindery: Trying to node to a page that's already overflowing");
     }
 
@@ -212,9 +232,16 @@ export default function(content, rules, done, DELAY) {
       switch (child.nodeType) {
         case Node.TEXT_NODE:
           let abortCallback = () => {
+            // let lastNode = last(state.path);
+            // console.log("— last node in stack:")
+            // console.log(elementName(lastNode));
+            // console.log("— proposed node to move:")
+            // console.log(elementName(node));
             moveNodeToNextPage(node);
             addTextNode(child, addNextChild, abortCallback);
           }
+          // console.log(`Adding text child of "${elementName(node)}"`);
+          // console.log(`Beginning to add "${child.nodeValue.substr(0,24)}"`);
           addTextNode(child, addNextChild, abortCallback);
           break;
         case Node.ELEMENT_NODE: {
