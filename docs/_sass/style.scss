@@ -34,6 +34,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+strong {
+  font-weight: 600;
+}
+
 .post-content {
   font: 22px / 1.35 Times, Times New Roman, serif;
   // font: 20px / 1.4 Minion Pro, Times, Times New Roman, serif;
@@ -62,6 +66,7 @@ body {
 
   &:hover {
     color: white;
+    border-color: $accent;
     background: $accent;
     opacity: 1;
   }
@@ -277,19 +282,24 @@ blockquote {
  */
 pre,
 code {
-  border-radius: 3px;
-  background-color: #f5f5ff;
+  // border-radius: 3px;
+  // background-color: #f5f5ff;
   line-height: 1.4rem;
   font-family: "Source Code Pro", Menlo, Consolas, Monaco, monospace;
-  font-size: 1rem;
+  font-size: 1.1rem;
+}
+
+.highlight pre {
+  background-color: #f5f5ff;
+  padding: 1rem;
 }
 
 code {
-  padding: 1px 5px;
+  // padding: 1px 5px;
 }
 
 pre {
-  padding: 8px 12px;
+  // padding: 8px 12px;
   overflow-x: auto;
 
   > code {
