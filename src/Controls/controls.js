@@ -1,5 +1,5 @@
 import h from 'hyperscript';
-import convertUnits from '../utils/convertUnits';
+import { cssNumberPattern, convertStrToPx } from '../utils/convertUnits';
 
 require('./controls.css');
 
@@ -10,9 +10,17 @@ const select = function (...arg) {
 const option = function (...arg) {
   return h('option', ...arg);
 };
-const inputNumber = function (val) {
-  return h('input', { type: 'number', value: val });
+// const inputNumber = function (val) {
+//   return h('input', { type: 'number', value: val });
+// };
+const inputNumberUnits = function (val) {
+  return h('input', {
+    type: 'text',
+    value: val,
+    pattern: cssNumberPattern,
+  });
 };
+
 const btn = function (...arg) {
   return h('button.bindery-btn', ...arg);
 };
@@ -74,63 +82,63 @@ class Controls {
       doneBtn = btn({ onclick: done }, 'Done');
     }
 
-    const input = {
-      top: inputNumber(this.binder.pageMargin.top),
-      inner: inputNumber(this.binder.pageMargin.inner),
-      outer: inputNumber(this.binder.pageMargin.outer),
-      bottom: inputNumber(this.binder.pageMargin.bottom),
-      width: inputNumber(this.binder.pageSize.width),
-      height: inputNumber(this.binder.pageSize.height),
+    const unitInputs = {
+      top: inputNumberUnits(this.binder.pageMargin.top),
+      inner: inputNumberUnits(this.binder.pageMargin.inner),
+      outer: inputNumberUnits(this.binder.pageMargin.outer),
+      bottom: inputNumberUnits(this.binder.pageMargin.bottom),
+      width: inputNumberUnits(this.binder.pageSize.width),
+      height: inputNumberUnits(this.binder.pageSize.height),
     };
 
     const sizeControl = h('.bindery-val.bindery-size',
-      h('div', 'W', input.width),
-      h('div', 'H', input.height),
+      h('div', 'W', unitInputs.width),
+      h('div', 'H', unitInputs.height),
     );
 
-    const changeUnit = (newUnit) => {
-      const oldUnit = this.binder.pageUnit;
-      Object.values(input).forEach((inputEl) => {
-        const el = inputEl;
-        const newVal = convertUnits(parseFloat(el.value), oldUnit, newUnit);
-        const rounded = Math.round(newVal * 100) / 100;
-        el.value = rounded;
-      });
-      this.binder.pageUnit = newUnit;
-    };
+    // const changeUnit = (newUnit) => {
+    //   const oldUnit = this.binder.pageUnit;
+    //   Object.values(input).forEach((inputEl) => {
+    //     const el = inputEl;
+    //     const newVal = convert(parseFloat(el.value), oldUnit, newUnit);
+    //     const rounded = Math.round(newVal * 100) / 100;
+    //     el.value = rounded;
+    //   });
+    //   this.binder.pageUnit = newUnit;
+    // };
 
-    const unitSelect = select(
-      { onchange() {
-        changeUnit(this.value);
-      } },
-      option({ value: 'px' }, 'Pixels'),
-      option({ disabled: true }, '96px = 1 in'),
-      option({ disabled: true }, ''),
-      option({ value: 'pt' }, 'Points'),
-      option({ disabled: true }, '72pt = 1 in'),
-      option({ disabled: true }, ''),
-      option({ value: 'pc' }, 'Pica'),
-      option({ disabled: true }, '6pc = 72pt = 1in'),
-      option({ disabled: true }, ''),
-      option({ value: 'in' }, 'Inches'),
-      option({ disabled: true }, '1in = 96px'),
-      option({ disabled: true }, ''),
-      option({ value: 'cm' }, 'cm'),
-      option({ disabled: true }, '2.54cm = 1in'),
-      option({ disabled: true }, ''),
-      option({ value: 'mm' }, 'mm'),
-      option({ disabled: true }, '25.4mm = 1in'),
-    );
-
-    unitSelect.value = this.binder.pageUnit;
-    const unitSwitch = row('Units', unitSelect);
+    // const unitSelect = select(
+    //   { onchange() {
+    //     changeUnit(this.value);
+    //   } },
+    //   option({ value: 'px' }, 'Pixels'),
+    //   option({ disabled: true }, '96px = 1 in'),
+    //   option({ disabled: true }, ''),
+    //   option({ value: 'pt' }, 'Points'),
+    //   option({ disabled: true }, '72pt = 1 in'),
+    //   option({ disabled: true }, ''),
+    //   option({ value: 'pc' }, 'Pica'),
+    //   option({ disabled: true }, '6pc = 72pt = 1in'),
+    //   option({ disabled: true }, ''),
+    //   option({ value: 'in' }, 'Inches'),
+    //   option({ disabled: true }, '1in = 96px'),
+    //   option({ disabled: true }, ''),
+    //   option({ value: 'cm' }, 'cm'),
+    //   option({ disabled: true }, '2.54cm = 1in'),
+    //   option({ disabled: true }, ''),
+    //   option({ value: 'mm' }, 'mm'),
+    //   option({ disabled: true }, '25.4mm = 1in'),
+    // );
+    //
+    // unitSelect.value = this.binder.pageUnit;
+    // const unitSwitch = row('Units', unitSelect);
 
     const marginPreview = h('.preview');
     const marginControl = h('.bindery-val.bindery-margin',
-      h('.top', input.top),
-      h('.inner', input.inner),
-      h('.outer', input.outer),
-      h('.bottom', input.bottom),
+      h('.top', unitInputs.top),
+      h('.inner', unitInputs.inner),
+      h('.outer', unitInputs.outer),
+      h('.bottom', unitInputs.bottom),
       marginPreview,
     );
 
@@ -236,10 +244,18 @@ class Controls {
         width = BASE;
         height = (BASE * 1) / ratio;
       }
-      const t = (newMargin.top / newSize.height) * height;
-      const b = (newMargin.bottom / newSize.height) * height;
-      const o = (newMargin.outer / newSize.width) * width;
-      const i = (newMargin.inner / newSize.width) * width;
+      const px = {
+        top: convertStrToPx(newMargin.top).val,
+        inner: convertStrToPx(newMargin.inner),
+        outer: convertStrToPx(newMargin.outer),
+        bottom: convertStrToPx(newMargin.bottom),
+        width: convertStrToPx(newSize.width),
+        height: convertStrToPx(newSize.height),
+      };
+      const t = (px.top / px.height) * height;
+      const b = (px.bottom / px.height) * height;
+      const o = (px.outer / px.width) * width;
+      const i = (px.inner / px.width) * width;
 
       sizeControl.style.width = `${width}px`;
       sizeControl.style.height = `${height}px`;
@@ -279,14 +295,14 @@ class Controls {
 
     const updateLayout = () => {
       const newMargin = {
-        top: input.top.value,
-        inner: input.inner.value,
-        outer: input.outer.value,
-        bottom: input.bottom.value,
+        top: unitInputs.top.value,
+        inner: unitInputs.inner.value,
+        outer: unitInputs.outer.value,
+        bottom: unitInputs.bottom.value,
       };
       const newSize = {
-        height: input.height.value,
-        width: input.width.value,
+        height: unitInputs.height.value,
+        width: unitInputs.width.value,
       };
 
       let needsUpdate = false;
@@ -316,9 +332,9 @@ class Controls {
       updateDelay = setTimeout(updateLayout, 700);
     };
 
-    Object.keys(input).forEach((k) => {
-      input[k].addEventListener('change', throttledUpdate);
-      input[k].addEventListener('keyup', throttledUpdate);
+    Object.keys(unitInputs).forEach((k) => {
+      unitInputs[k].addEventListener('change', throttledUpdate);
+      unitInputs[k].addEventListener('keyup', throttledUpdate);
     });
 
     const layoutState = h('div',
@@ -335,7 +351,7 @@ class Controls {
 
         label(layoutState, 'Pagination'),
         layoutControl,
-        unitSwitch,
+        // unitSwitch,
         facingToggle,
 
         label('Print'),
