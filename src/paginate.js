@@ -215,10 +215,6 @@ const paginate = function (
     let pos = 0;
 
     const step = () => {
-      if (pos > origText.length - 1) {
-        throttle(doneCallback);
-        return;
-      }
       textNode.nodeValue = origText.substr(0, pos);
 
       if (state.currentPage.hasOverflowed()) {
@@ -257,6 +253,10 @@ const paginate = function (
         throttle(step);
         return;
       }
+      if (pos > origText.length - 1) {
+        throttle(doneCallback);
+        return;
+      }
 
       pos += 1;
       while (origText.charAt(pos) !== ' ' && pos < origText.length) pos += 1;
@@ -288,6 +288,11 @@ const paginate = function (
     const childNodes = [...node.childNodes];
     // 2. Clear this node
     node.innerHTML = '';
+
+    if (state.currentPage.hasOverflowed()) {
+      console.error(`Bindery: Adding ${elToStr(node)} causes overflow even when empty`);
+      moveNodeToNextPage(node);
+    }
 
     // 3. Try adding each child one by one
     let index = 0;
