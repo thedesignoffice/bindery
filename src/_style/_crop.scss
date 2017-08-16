@@ -1,0 +1,101 @@
+$markLen: 12pt;
+$markOffset: $markLen + $bleed;
+$bleedOffset: $markOffset;
+
+.#{$pre}-print-mark-wrap {
+  display: none;
+  position: absolute;
+  pointer-events: none;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 999;
+
+  .#{$pre}-show-crop &,
+  .#{$pre}-show-bleed-marks & {
+    display: block;
+  }
+
+  .#{$pre}-show-crop & {
+    > [class*='crop'] {
+      display: block;
+    }
+  }
+  .#{$pre}-show-bleed-marks & {
+    > [class*='bleed'] {
+      display: block;
+    }
+  }
+
+  > div {
+    display: none;
+    position: absolute;
+    overflow: hidden;
+
+    &::before,
+    &:after {
+      content: "";
+      background: black;
+      width: $markLen;
+      height: $markLen;
+      display: block;
+      position: absolute;
+    }
+
+    &:before {
+      top: 0; left: 0;
+    }
+    &:after {
+      bottom: 0; right: 0;
+    }
+  }
+
+}
+.#{$pre}-show-crop .#{$pre}-print-page .#{$pre}-spread-wrapper,
+.#{$pre}-show-bleed-marks .#{$pre}-print-page .#{$pre}-spread-wrapper {
+  margin: 30pt auto;
+}
+
+.#{$pre}-crop {
+  &-fold,
+  &-left,
+  &-right {
+    transform: scaleX(0.5);
+    width: 1px;
+    margin: auto;
+  }
+  &-fold { right: 0; left: 0; }
+  &-left { left: 0; }
+  &-right { right: 0; }
+
+
+  &-top,
+  &-bottom {
+    transform: scaleY(0.5);
+    height: 1px;
+  }
+
+  &-top {
+    top: 0;
+  }
+  &-bottom {
+    bottom: 0;
+  }
+}
+
+.#{$pre}-bleed {
+  &-left,
+  &-right {
+    transform: scaleX(0.5);
+    width: 1px;
+    margin: auto;
+  }
+
+
+  &-top,
+  &-bottom {
+    transform: scaleY(0.5);
+    height: 1px;
+  }
+}

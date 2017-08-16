@@ -1,29 +1,23 @@
 import h from 'hyperscript';
-import BinderyRule from './BinderyRule';
+import Rule from './Rule';
+import RuleOption from './RuleOption';
+import c from '../utils/prefixClass';
 
-require('./runningHeader.css');
+// Options:
+// selector: String
+// render: function (Page) => HTMLElement
+// TODO selectorHierarchy: [ String ], ie [ 'h1', 'h2', 'h3.chapter' ]
 
-class RunningHeader extends BinderyRule {
-  constructor(options) {
-    options.name = 'Running Header';
-    if (options.beginSection) {
-      options.selector = options.beginSection;
-    }
+class RunningHeader extends Rule {
+  constructor(options = {}) {
     super(options);
-    this.customClass = options.customClass;
-    this.currentHeaderContent = '';
-  }
-  afterAdd(elmt, state) {
-    state.currentPage.section = elmt.textContent;
-    return elmt;
+    this.name = 'Running Header';
+    this.validate(options, {
+      render: RuleOption.func,
+    });
   }
   afterBind(page) {
-    if (page.section) {
-      this.currentHeaderContent = page.section;
-    }
-    page.section = this.currentHeaderContent;
-
-    const el = h('.bindery-running-header');
+    const el = h(c('.running-header'));
     el.innerHTML = this.render(page);
     page.element.appendChild(el);
   }
@@ -32,6 +26,4 @@ class RunningHeader extends BinderyRule {
   }
 }
 
-export default function (userOptions) {
-  return new RunningHeader(userOptions);
-}
+export default RunningHeader;

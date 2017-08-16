@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<title>Bindery Ex 8 — Creating an Index</title>
+		<style>
+		.content, .intro {
+		  margin: 20px auto;
+		  max-width: 900px;
+		  padding: 20px;
+		}
+
+		p {
+		  text-indent: 1rem;
+		  margin: 0;
+		}
+
+		.index-content ul, li {
+		  margin: 0;
+		  padding: 0;
+		  list-style: none;
+		}
+
+		.index-content li {
+		  text-indent: -1em;
+		  padding-left: 1em;
+		}
+	</style>
+</head>
+
+<body>
+
+	<script type="text/javascript" src="../../build/bindery.js"></script>
+	<script>
+			Bindery.makeBook({
+			  source: {
+					url: 'content.html',
+					selector: ".content",
+				},
+			  rules: [
+					Bindery.PageBreak({ selector: 'h2', position: 'before', continue: 'right' }),
+					Bindery.RunningHeader(),
+					Bindery.PageReference({
+						selector: '.index-content li',
+						createTest: (element) => {
+							let term = element.textContent.toLowerCase().trim();
+							return (page) => {
+								let txt = page.querySelector('.book-content');
+								if (txt) return txt.textContent.toLowerCase().includes(term);
+								return false;
+							}
+						},
+					})
+			  ],
+			});
+
+	</script>
+</body>
+</html>

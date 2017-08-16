@@ -3,9 +3,8 @@
 
 <head>
 	<meta charset="utf-8">
-	<title>My Website - Book</title>
+	<title>Bindery Ex 5 — Maximum Content</title>
 	<link rel="stylesheet" type="text/css" href="style.css" />
-	<link rel="stylesheet" type="text/css" href="book.css" />
 </head>
 
 <body>
@@ -14,7 +13,7 @@
 	<script>
 			Bindery.makeBook({
 			  source: {
-					url: 'content.html',
+					url: 'long_content.html',
 					selector: ".content",
 				},
 			  rules: [
@@ -23,19 +22,18 @@
 						selector: 'p > a',
 						render: (elmt, number) => `<sup>${number}</sup> Link to <u>${elmt.href}</u>`,
 					}),
-					Bindery.Spread({ selector: ".big-figure" }),
+					Bindery.FullBleedSpread({ selector: ".big-figure" }),
 					Bindery.RunningHeader({
-						beginSection: 'h2',
 						render: (page) => {
 							if (page.isEmpty) return '';
-							else if (page.element.querySelector('h2')) return '';
-							else if (page.isLeft) return `${page.number} · ${page.section} `;
-							else if (page.isRight) return `John P. Author · ${page.number}`;
+							else if (page.element.querySelector('h1, h2')) return '';
+							else if (page.isLeft) return `${page.number} · ${page.heading.h1} `;
+							else if (page.isRight) return `${page.heading.h2} · ${page.number}`;
 						},
 					}),
 					Bindery.PageReference({
 						selector: ".toc a",
-						updateReference: (element, number) => {
+						replace: (element, number) => {
 							element.insertAdjacentHTML(
 								"afterend",
 								`<i style="float:right;">${number}</i>`

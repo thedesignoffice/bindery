@@ -1,36 +1,40 @@
 import h from 'hyperscript';
-import BinderyRule from './BinderyRule';
+import Replace from './Replace';
+import RuleOption from './RuleOption';
 
-class Footnote extends BinderyRule {
+// Options:
+// selector: String
+// replace: function (HTMLElement, number) => HTMLElement
+// render: function (Page) => HTMLElement
+
+class Footnote extends Replace {
   constructor(options) {
-    options.name = 'Footnote';
     super(options);
+    this.name = 'Footnote';
+    this.validate(options, {
+      selector: RuleOption.string,
+      replace: RuleOption.func,
+      render: RuleOption.func,
+    });
   }
   afterAdd(element, state, requestNewPage, overflowCallback) {
-    const number = state.currentPage.footer.querySelectorAll('.footnote').length + 1;
-
-    const parent = element.parentNode;
-    const defensiveClone = element.cloneNode(true);
-    const replacement = this.replace(defensiveClone, number);
-    parent.replaceChild(replacement, element);
+    const number = state.currentPage.footer.children.length + 1;
 
     const footnote = h('.footnote');
     const contents = this.render(element, number);
     if (contents instanceof HTMLElement) footnote.appendChild(contents);
-    else if (typeof contents === 'string') footnote.innerHTML = contents;
-    else footnote.textContent = `<sup>${number}</sup> Error: You must return an HTML Element or string from render`;
+    else footnote.innerHTML = contents;
 
     state.currentPage.footer.appendChild(footnote);
 
-    if (state.currentPage.hasOverflowed()) {
+    return super.afterAdd(element, state, requestNewPage, (overflowEl) => {
       state.currentPage.footer.removeChild(footnote);
-      parent.replaceChild(element, replacement);
-
-      overflowCallback();
-      return element;
-    }
-
-    return replacement;
+      return overflowCallback(overflowEl);
+    });
+  }
+  createReplacement(state, element) {
+    const number = state.currentPage.footer.children.length;
+    return this.replace(element, number);
   }
   replace(element, number) {
     element.insertAdjacentHTML('beforeEnd', `<sup class="bindery-sup">${number}</sup>`);
@@ -41,6 +45,4 @@ class Footnote extends BinderyRule {
   }
 }
 
-export default function (userOptions) {
-  return new Footnote(userOptions);
-}
+export default Footnote;

@@ -1,0 +1,229 @@
+@media screen {
+  .#{$pre}-viewing {
+    background: $background !important;
+  }
+  .#{$pre}-root {
+    transition: opacity 0.2s;
+    opacity: 1;
+    background: $background;
+    padding: 20px;
+    z-index: 99;
+    position: relative;
+    padding-right: $sidebarWidth;
+    animation: fadeUp 0.3s;
+    min-height: 90vh;
+  }
+
+  .#{$pre}-measure-area {
+    position: fixed;
+    background: $background;
+    padding: 50px 20px;
+    z-index: 99;
+    visibility: hidden;
+    top: 0;
+    left: 0;
+    right: $sidebarWidth;
+    bottom: 0;
+
+    .#{$pre}-debug & {
+      overflow: scroll;
+      visibility: visible;
+    }
+
+    .#{$pre}-page {
+      margin: 0 auto 50px;
+    }
+  }
+
+   .#{$pre}-print-page {
+     margin: 0 auto;
+   }
+
+   .#{$pre}-spinner {
+     border: 2px solid transparent;
+     border-left-color: $accent;
+     width: 32px;
+     height: 32px;
+     border-radius: 50%;
+     position: absolute;
+     top: 0;
+     left: 0;
+     bottom: 0;
+     right: 0;
+     margin: auto;
+     z-index: 999;
+     opacity: 0;
+   }
+
+   .#{$pre}-in-progress .#{$pre}-spinner {
+     opacity: 1;
+     animation: spin 0.6s linear infinite;
+   }
+
+   .#{$pre}-error {
+     font: 16px / 1.4 $system;
+     margin: 15vh 15vw;
+     max-width: 500px;
+     background: url('../_assets/icon-error.svg') no-repeat 0% 0%;
+     background-size: 48px;
+     padding-top: 64px;
+
+     &-title {
+       font-size: 1.5em;
+       margin-bottom: 16px;
+     }
+     &-text {
+       margin-bottom: 16px;
+       white-space: pre-line;
+     }
+     &-footer {
+       opacity: 0.5;
+       font-size: 0.66em;
+       text-transform: uppercase;
+       letter-spacing: 0.02em;
+     }
+   }
+
+   .#{$pre}-show-bleed .#{$pre}-print-page {
+     background: white;
+     outline: 1px solid rgba(0,0,0,0.1);
+     box-shadow: 0px 1px 3px rgba(0,0,0,0.2);
+     margin: 20px auto;
+   }
+
+   .#{$pre}-letter {
+     &-landscape {
+       width: 11in;
+       height: 8.5in;
+     }
+     &-portrait {
+       width: 8.5in;
+       height: 11in;
+     }
+   }
+
+}
+
+@keyframes fadeUp {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes spin {
+  0%   { transform: rotateZ(0); }
+  100% { transform: rotateZ(360deg); }
+}
+
+@page {
+  margin: 0;
+}
+
+@media print {
+  .#{$pre}-root {
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Don't print anything that hasn't been exported. This hides extra controls/ */
+  .#{$pre}-viewing > :not(.#{$pre}-root) {
+    display: none !important;
+  }
+
+  .#{$pre}-controls {
+    display: none !important;
+  }
+
+  .#{$pre}-print-page {
+    margin: 0;
+  }
+
+  .#{$pre}-zoom-wrap[style] {
+    transform: none !important;
+  }
+
+}
+
+body.#{$pre}-viewing {
+  margin: 0;
+}
+
+.#{$pre}-zoom-wrap {
+  transform-origin: top left;
+  transform-style: preserve-3d;
+  height: calc(100vh - 40px); /* adjust scrollheight on scaled down */
+}
+
+/* Don't print anything that hasn't been exported. This hides extra controls */
+/* TODO: make selectors more reasonable */
+.#{$pre}-viewing > :not(.#{$pre}-root):not(.#{$pre}-measure-area) {
+  display: none !important;
+}
+
+.#{$pre}-print-page {
+  page-break-after: always;
+  position: relative;
+  overflow: hidden;
+}
+
+.#{$pre}-spread-wrapper {
+  position: relative;
+  display: flex;
+  width: 800px;
+  margin: 0 auto 50px;
+}
+
+.#{$pre}-print-page .#{$pre}-spread-wrapper {
+  margin: 0 auto;
+}
+
+.#{$pre}-print-meta {
+  padding: 12pt;
+  text-align: center;
+  font-family: $system;
+  font-size: 8pt;
+}
+
+.#{$pre}-stage3d {
+  perspective: 3000px;
+  transform-style: preserve-3d;
+}
+
+.#{$pre}-page3d {
+  margin: auto;
+  width: 400px;
+  height: 600px;
+  transform: rotateY(0);
+  transform-style: preserve-3d;
+  transform-origin: left;
+  transition: transform 0.5s, box-shadow 0.1s;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+
+  &:hover {
+    box-shadow: 2px 0 4px rgba(0,0,0,0.2);
+  }
+
+  &.flipped {
+    transform: rotateY(-180deg);
+  }
+
+  .#{$pre}-page {
+    position: absolute;
+    backface-visibility: hidden;
+  }
+
+  .#{$pre}-page3d-front {
+    transform: rotateY(0);
+    &::after {
+      box-shadow: inset 12px 0 12px -12px rgba(0,0,0,0.4)
+    }
+  }
+
+  .#{$pre}-page3d-back {
+    transform: rotateY(-180deg);
+    &::after {
+      box-shadow: inset -12px 0 12px -12px rgba(0,0,0,0.4)
+    }
+  }
+}

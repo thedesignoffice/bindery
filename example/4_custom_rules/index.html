@@ -3,7 +3,7 @@
 
 <head>
 	<meta charset="utf-8">
-	<title>Bindery - Custom Rules</title>
+	<title>Bindery Ex 4 — Custom Rules</title>
   <link rel="stylesheet" type="text/css" href="style.css" />
 </head>
 
@@ -17,29 +17,30 @@
 			beforeAdd: function(element) {
 				element.style.fontSize = 16 + this.enlargeBy + "px";
 				this.enlargeBy = this.enlargeBy * 0.9;
+				return element;
 			},
 		});
 
 		let rainbowRule = Bindery.createRule({
-			afterBind: function(page, pageIndex, pageCount) {
-				let pct = pageIndex / pageCount;
-				page.bleed.style.backgroundColor = "hsl(" + (pct * 360) + ", 80%, 80%)";
+			afterBind: function(page, book) {
+				let pct = page.number / book.pageCount;
+				page.background.style.backgroundColor = "hsl(" + (pct * 360) + ", 80%, 80%)";
 			}
 		});
 
 		let foreedgeRule = Bindery.createRule({
-			afterBind: function(page, pageIndex, pageCount) {
+			afterBind: function(page, book) {
 				let edgePaint = document.createElement("div");
-				if (page.side == "right") {
+				if (page.isRight) {
 					edgePaint.style.background = "url('img/forward.svg') no-repeat";
 					edgePaint.style.right = "-10px";
 				}
-				else if (page.side == "left") {
+				else if (page.isLeft) {
 					edgePaint.style.background = "url('img/back.svg') no-repeat";
 					edgePaint.style.left = "-10px";
 				}
 				Object.assign(edgePaint.style, {
-					backgroundPosition: ((pageIndex / pageCount) * 100) + "% 0",
+					backgroundPosition: ((page.number / book.pageCount) * 100) + "% 0",
 					backgroundSize: "cover",
 					width: "12px",
 					position: "absolute",
@@ -55,7 +56,7 @@
 				url: "content.html",
 				selector: ".content"
 			},
-			startingView: "interactive",
+			startingView: "flip",
 			pageUnit: "in",
 			pageSize: { height: '4in', width: '4in' },
 			pageMargin: { top: '0.3in', inner: '0.3in', outer: '0.3in', bottom: '0.3in' },

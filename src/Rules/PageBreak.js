@@ -1,15 +1,21 @@
-import BinderyRule from './BinderyRule';
+import Rule from './Rule';
+import RuleOption from './RuleOption';
 
-// API:
-// position: 'before' (default) | 'after' | 'both'
-// continue: | 'any' (default) | 'left' | 'right'
-
-class PageBreak extends BinderyRule {
+class PageBreak extends Rule {
   constructor(options) {
-    options.name = 'Page Break';
-    options.position = options.position ? options.position : 'before';
-    options.continue = options.continue ? options.continue : 'any';
+    options.position = options.position || 'before';
+    options.continue = options.continue || 'any';
     super(options);
+
+    this.name = 'Page Break';
+    this.validate(options, {
+      selector: RuleOption.string,
+      continue: RuleOption.enum('any', 'left', 'right'),
+      position: RuleOption.enum('before', 'after', 'both', 'avoid'),
+    });
+  }
+  get avoidSplit() {
+    return this.position === 'avoid';
   }
   beforeAdd(elmt, state, requestNewPage) {
     if (this.position === 'before' || this.position === 'both') {
@@ -33,6 +39,4 @@ class PageBreak extends BinderyRule {
   }
 }
 
-export default function (userOptions) {
-  return new PageBreak(userOptions);
-}
+export default PageBreak;
