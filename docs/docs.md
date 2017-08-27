@@ -32,8 +32,6 @@ bindery.makeBook();
 {% endhighlight %}
 
 
-### Options
-
 ##### `source`
 Content to flow across pages. If the content is on the same page, use a CSS selector or a reference to the node. If the content must be fetched from a remote page, pass an object in the form of `{ url, selector }`.
 
@@ -84,10 +82,22 @@ Bindery.makeBook({
 });
 {% endhighlight %}
 
+##### `bleed`
+Amount of bleed, with absolute CSS units. This sets the position of bleed and
+crop marks, and will affect the size of [full-bleed pages](#binderyfullbleedpage)
+and [spreads](#binderyfullbleedspread)
+if they are set to `width: 100%; height: 100%;`
+
+{% highlight js %}
+Bindery.makeBook({
+  source: '#content',
+  bleed: '12pt',
+});
+{% endhighlight %}
 
 
 ##### `rules`
-An array of Rules. See below for details
+An array of Rules. See the [Components section](#components) for available options.
 
 {% highlight js %}
 Bindery.makeBook({
@@ -99,34 +109,37 @@ Bindery.makeBook({
 });
 {% endhighlight %}
 
-
-### Rules
-
-##### `Bindery.Continuation`
-If you want to customize the design when an element splits across two pages.
-- `selector` Which elements the rule should be applied to.
-- `hasContinuationClass` <br> Applied to elements that continue onto the next page. `Optional`
-- `isContinuationClass` <br> Applied to elements that start on a previous page. `Optional`
-
+You may prefer to create rules separately:
 {% highlight js %}
+let breakRule = Bindery.PageBreak({
+  selector: 'h2',
+  position: 'before',
+});
+
+let spreadRule = Bindery.FullBleedSpread({
+  selector: '.big-figure',
+});
+
 Bindery.makeBook({
   source: '#content',
-  rules: [
-    Bindery.Continuation({
-      selector: 'p',
-      hasContinuationClass: 'my-continues',
-      isContinuationClass: 'my-from',
-    }),
-  ],
+  rules: [ breakRule, spreadRule ],
 });
 {% endhighlight %}
 
+### Components
+
 ##### `Bindery.PageBreak`
 Adds or avoids page breaks for the selected element.
-- `selector` Which elements the rule should be applied to.
-- `position` `'before', 'after', 'both', 'avoid'`— Where to insert the break.
-- `continue` `'left', 'right', 'any'` — Whether to continue flowing contents after the break on a
-specific page. `Optional`
+- `selector:` Which elements the rule should be applied to.
+- `position:`
+  - `'before'` insert a break before the element, so it starts on a new page
+  - `'after'` insert a break after the element
+  - `'both'` insert breaks before and after the element
+  - `'avoid'` prevents the element from breaking in the middle, by pushing it to the next page.
+- `continue:` will insert an extra break when appropriate so that the flow will resume
+on a specific page. `Optional`
+  - `'left'`
+  - `'right'`
 
 {% highlight js %}
 // Make sure chapter titles always start on a righthand page.
@@ -138,29 +151,15 @@ Bindery.PageBreak({
 {% endhighlight %}
 
 
-##### `Bindery.FullBleedPage`
-Removes the selected element from the ordinary flow of the book and places it on its own
-page. Good for displaying figures and imagery.
-- `selector` Which elements the rule should be applied to.
-- `continue` `'same', 'left', 'right', 'next'` — Where to resume the book flow after adding the
-full bleed element. Left, right, and next continue after the element. `same` will
-continue the flow where it left off, so there's not a blank gap before the image.
-
-{% highlight js %}
-Bindery.FullBleedPage({
-  selector: '.fullpage',
-  continue: 'same'
-}),
-{% endhighlight %}
-
-##### `Bindery.FullBleedSpread`
-The same as `Bindery.FullBleedPage`, but places the element across two pages.
-
 ##### `Bindery.RunningHeader`
-If you want to customize the design when an element splits across two pages.
-- `render` A function that takes a `Page` and returns a string of HTML. You'll
+An element added to each page. By default it will add a page number
+at the top right of each page, but you can use `render` to generate running
+headers using your section titles. Keep in mind you can also use multiple
+`RunningHeaders` to create multiple elements— for example, to add both a page number
+at the bottom and a chapter title at the top.
+- `render:` A function that takes a `Page` and returns a string of HTML. You'll
 probably want to use the `number`, `isLeft`, `isEmpty`, and `heading` property
-of the `Page`. `Optional`
+of the `Page` — see [`Page`](#page) for details. `Optional`
 
 {% highlight js %}
 Bindery.RunningHeader({
@@ -180,11 +179,11 @@ Bindery.RunningHeader({
 Add a footnote to the bottom of the flow area. Footnotes cut into the area for
 text, so note that very large footnotes may bump the entire element to the
 next page.
-- `selector` Which elements the rule should be applied to.
-- `render` A function that takes an element and number, and returns the
+- `selector:` Which elements the rule should be applied to.
+- `render:` A function that takes an element and number, and returns the
 footnote for that element. This footnote will be inserted at the bottom of the flow
 area.
-- `replace` A function that takes the selected element and number, and returns
+- `replace:` A function that takes the selected element and number, and returns
 an new element with a footnote indicator. By default, Bindery will simply insert
 the number as a superscript after the original element. `Optional`
 
@@ -197,20 +196,81 @@ Bindery.Footnote({
 }),
 {% endhighlight %}
 
+##### `Bindery.FullBleedPage`
+Removes the selected element from the ordinary flow of the book and places it on its own
+page. Good for displaying figures and imagery. You can use CSS to do your own layout on this page— `width: 100%; height: 100%` will fill the whole bleed area.
+- `selector:` Which elements the rule should be applied to.
+- `continue:` Where to resume the book flow after adding the
+full bleed page
+  - `'same'` `default` Continues back where the element was, so there's not a blank gap before the page. Note that this usually results in a different order than your original markup
+  - `'next'` Continues on a new page
+  - `'left'` Continues on the next left page, inserting another page when appropriate
+  - `'right'` Continues on the next right page, inserting another page when appropriate
+- `rotate:` Optionally add a rotation the full-bleed content
+  - `'none'` `default`
+  - `'clockwise'` The top will become the left edge
+  - `'counterclockwise'` The top will become the right edge
+  - `'inward'` The top will become the outside edge
+  - `'outward'` The top will become the inside edge
+
+{% highlight js %}
+Bindery.FullBleedPage({
+  selector: '.big-figure',
+  continue: 'same'
+}),
+{% endhighlight %}
+
+##### `Bindery.FullBleedSpread`
+The same as [`FullBleedPage`](#binderyfullbleedpage), but places the element across two pages.
+- `selector:` Which elements the rule should be applied to.
+- `continue:` Where to resume the book flow after adding the
+full bleed element
+  - `'same'` `default` Continue where the element was, so there's not a blank gap before the spread.
+  - `'next'` Continues on a new page after the spread.
+  - `'left'` Continues on the next left page after the spread
+  - `'right'` Continues on the next right page after the spread
+- `rotate:` Optionally add a rotation the full-bleed content
+  - `'none'` `default`
+  - `'clockwise'` The top will become the left edge
+  - `'counterclockwise'` The top will become the right edge
+
+{% highlight js %}
+Bindery.FullBleedSpread({
+  selector: '.wide-figure',
+  continue: 'next',
+  rotate: 'clockwise',
+}),
+{% endhighlight %}
+
+##### `Bindery.Continuation`
+If you want to customize the design when an element splits across two pages. [See example](/bindery/example-viewer/#7_custom_continuation).
+- `selector` Which elements the rule should be applied to.
+- `hasContinuationClass` Applied to elements that will continue onto the next page. `Optional`
+- `isContinuationClass` Applied to elements that started on a previous page. `Optional`
+
+{% highlight js %}
+Bindery.Continuation({
+  selector: 'p',
+  hasContinuationClass: 'my-continues',
+  isContinuationClass: 'my-from',
+}),
+{% endhighlight %}
+
 
 ### Referencing Pages
 
 ##### `Bindery.PageReference`
 Use PageReference to create a table of contents, index, endnotes, or anywhere
 you might otherwise use anchor links or in-page navigation on the web.
-- `selector` Which elements the rule should be applied to.
-- `replace` A function that takes an element and a page range, and must return
+- `selector:` Which elements the rule should be applied to.
+- `replace:` A function that takes an element and a page range, and must return
 a new element. By default, Bindery will simply insert the page range
 after the original element. `Optional`
-- `createTest` A function that takes your reference element and returns a test function.
+- `createTest:` A function that takes your reference element and returns a test function.
 The test function receives a page element, and should return true if the
 reference can be found. By default, the test function will look for
-the anchor tag of the reference element's `href` property. `Optional`
+the anchor tag of the reference element's `href` property, which is useful for
+a table of contents. Use a custom function to create an index.
 
 #### Creating a Table of Contents
 A table of contents is a reference that points to a specific page. By default, PageReference will look for anchor links. To create a table of
@@ -257,8 +317,8 @@ Bindery.PageReference({
   selector: '.index-content li',
   createTest: (el) => {
     let searchTerm = el.textContent.toLowerCase().trim();
-    return (pageEl) => {
-      let textToSearch = pageEl.textContent.toLowerCase();
+    return (elToSearch) => {
+      let textToSearch = elToSearch.textContent.toLowerCase();
       return textToSearch.includes(searchTerm);
     }
   },
@@ -269,11 +329,21 @@ This will transform the list items as below:
 
 {% highlight html %}
 <!-- Before -->
+<p>
+  Most books are perfect bound.
+</p>
+...
 <ul class='index-content'>
   <li>Saddle Stitch</li>
 </ul>
+{% endhighlight %}
 
+{% highlight html %}
 <!-- After -->
+<p>
+  Most books are perfect bound.
+</p>
+...
 <ul class='index-content'>
   <li>Saddle Stitch, 3-5, 10, 24</li>
 </ul>
@@ -301,9 +371,12 @@ Bindery.PageReference({
   Most books are perfect bound.
 </p>
 
-<!-- In your index markup -->
+...
+
 <ul>
-  <li data-index-reference='perfectBind'>Perfect Binding</li>
+  <li data-index-reference='perfectBind'>
+    Perfect Binding
+  </li>
 </ul>
 {% endhighlight %}
 
@@ -311,3 +384,24 @@ Bindery.PageReference({
 Note that we can't know what page something will end up on until the book layout
 is complete, so make sure that your `replace` function doesn't
 change the layout drastically.
+
+### Advanced
+
+##### `Page`
+You may receive instances of `Page` when using custom rules,
+but will not create them yourself.
+- `number` the page number, with the first page being 1
+- `heading` The current hierarchy of headings from previous pages, in the form of `{ h1: String, h2: String, ... h6: String }`
+- `isEmpty` `Bool` Whether the page includes flow content
+- `isRight` `Bool` The page is on the right (the front of the leaf)
+- `isLeft` `Bool` The page is on the left (the back of the leaf)
+
+##### `Book`
+You may receive instances of `Book` when using custom rules,
+but will not create them yourself.
+- `pages` Array of `Page`s
+- `isComplete` Whether layout has completed
+<!-- - `pagesForTest` Used internally by `PageReference`. Function with arguments
+`testFunc` and `callback`, will call callback after layout is completed
+with a string of all the
+page ranges where `testFunc` return true. -->
